@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<title>DoggyRun</title>
+<style>
+body{
+margin: 0;
+overflow: hidden;
+}
+canvas {
+display: block;
+background: #000;
+}
+#gameTitle {
+position: absolute;
+top: 50%;
+left: 50%;
+transform: translate(-50%, -50%);
+color: white;
+font-size: 40px;
+font-family: 'Press Start 2P', cursive;
+text-align: center;
+cursor: pointer;
+transition: opacity 1s ease-out; 
+z-index: 10; 
+}
+#gameTitle.hidden {
+opacity: 0;
+pointer-events: none; 
+}
+.hidden {
+display: none;
+}
+#gameOverScreen {
+position: absolute;
+top: 50%;
+left: 50%;
+transform: translate(-50%, -50%);
+color: white;
+font-family: 'Press Start 2P', cursive;
+text-align: center;
+z-index: 20;
+}
+
+#gameOverText {
+font-size: 40px;
+margin-bottom: 30px;
+}
+
+#restartButton {
+font-size: 50px;
+padding: 10px 20px;
+background-color: #FFFF99;
+border: 2px solid #000;
+cursor: pointer;
+ border-radius: 20px;
+}
+#timer{
+position: absolute;
+top: 20px;
+left: 20px;
+color: white;
+font-family: 'Press Start 2P', cursive;
+font-size: 20px;
+z-index: 15;
+}
+</style>
+</head>
+<body>
+<canvas id="canvas" width="1700" height="750"></canvas>
+<div id="timer">Time: 0</div>
+
+<div id="gameOverScreen" class="hidden">
+<div id="gameOverText">Game Over</div>
+<button id="restartButton">Play again!</button>
+<div id="recordTime" style="margin-top: 20px; font-size: 16px;"></div>
+</div>
+
+<div id="gameTitle">DoggyRun<br><br> Tab space to continue</div>
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const width = canvas.width;
+const height = canvas.height;
+	
+let startTime = null;
+let elapsedTime = 0;
+const timerElement = document.getElementById('timer');
+	
+const gameOverScreen = document.getElementById('gameOverScreen');
+const restartButton = document.getElementById('restartButton');
+
+const gameTitleElement = document.getElementById('gameTitle');
+const bgImage = new Image();
+bgImage.src = 'phone.png';
+
+const dogImage = new Image();
+dogImage.src = 'dog.png'; 
+	
+const stoneImage = new Image();
+stoneImage.src = 'stone.png';
+
+const birdImage = new Image();
+birdImage.src = 'bird.png';
+	
+let bgMoveX = 0;
+let isRunning = false;
+let gameStarted = false;
+let gameOver = false;
+
+
+const groundY = 430;
+let dogX = 110;
+let dogY = groundY;
+let dogVY = 0;
+const gravity = 0.1;
+const jumpPower = -7
+const maxFallSpeed = 10;
+let isJumping = false;
+let dogWidth = 0;
+let dogHeight = 0;
+	
+const stone = {
+x: width,
+y: groundY + 90,
+width: 50,
+height: 50,
+speed: 3
+};
+  
+const bird = {
+x: width + Math.random() * 1000,
+y: 250 + Math.random() * 100, 
+width: 60,
+height: 40,
+speed: 4,
+active: false,
+timer: 0
+};
+
+function resetStone() {
+stone.x = width + Math.random() * 500 + 300; 
+}
+function resetBird() {
+bird.x = width + Math.random() * 1000 + 500;
+bird.y = 250 + Math.random() * 100;
+bird.active = true;
+}
+
+function update() {
+if (!gameStarted) return; 
+if (!gameOver && gameStarted) {
+if (startTime === null) startTime = Date.now();
+elapsedTime = Math.floor((Date.now() - startTime) / 1000);
+timerElement.textContent = `Time: ${elapsedTime}`;
+}
+if (isRunning) {
+bgMoveX -= 2;
+if (bgMoveX <= -width) bgMoveX = 0;
+}
+dogVY += gravity;
+if (dogVY > maxFallSpeed) dogVY = maxFallSpeed; 
+dogY += dogVY;
+
+if (dogY >= groundY) {
+dogY = groundY;
+dogVY = 0;
+isJumping = false;
+}
+if (!gameOver) {
+stone.x -= stone.speed;
+}
+
+if (stone.x + stone.width < 0) {
+resetStone();
+    }
+const dogHitbox = {
+x: dogX + dogWidth * 0.1,
+y: dogY + dogHeight * 0.1,
+width: dogWidth * 0.8,
+height: dogHeight * 0.8
+};
+
+const stoneHitbox = {
+x: stone.x + stone.width * 0.1,
+y: stone.y + stone.height * 0.1,
+width: stone.width * 0.8,
+height: stone.height * 0.8
+};
+  
+if (bird.active) {
+const birdHitbox = {
+x: bird.x + bird.width * 0.1,
+y: bird.y + bird.height * 0.1,
+width: bird.width * 0.8,
+height: bird.height * 0.8
+};
+
+if (
+dogHitbox.x < birdHitbox.x + birdHitbox.width &&
+dogHitbox.x + dogHitbox.width > birdHitbox.x &&
+dogHitbox.y < birdHitbox.y + birdHitbox.height &&
+dogHitbox.y + dogHitbox.height > birdHitbox.y
+ ) {
+gameOver = true;
+isRunning = false;
+gameOverScreen.classList.remove('hidden');
+	
+if (elapsedTime > (localStorage.getItem('bestTime') || 0)) {
+localStorage.setItem('bestTime', elapsedTime);
+}
+
+const bestTime = localStorage.getItem('bestTime') || 0;
+document.getElementById('recordTime').textContent = `Best Time: ${bestTime} sec`;
+}
+}
+
+if (!gameOver) {
+if (!bird.active && Math.random() < 0.005) {
+resetBird();
+}
+
+if (bird.active) {
+bird.x -= bird.speed;
+if (bird.x + bird.width < 0) {
+bird.active = false;
+}
+}
+}
+if (
+dogHitbox.x < stoneHitbox.x + stoneHitbox.width &&
+dogHitbox.x + dogHitbox.width > stoneHitbox.x &&
+dogHitbox.y < stoneHitbox.y + stoneHitbox.height &&
+dogHitbox.y + dogHitbox.height > stoneHitbox.y
+) {
+gameOver = true;
+isRunning = false;
+gameOverScreen.classList.remove('hidden');
+
+if (!gameOver && gameStarted) {
+if (startTime === null) startTime = Date.now();
+elapsedTime = Math.floor((Date.now() - startTime) / 1000);
+timerElement.textContent = `Time: ${elapsedTime}`;
+}
+}
+}
+function draw() {
+ctx.clearRect(0, 0, width, height);
+ctx.drawImage(bgImage, bgMoveX, 0, width, height);
+ctx.drawImage(bgImage, bgMoveX + width, 0, width, height);
+ctx.drawImage(dogImage, dogX, dogY, dogWidth, dogHeight);
+ctx.drawImage(stoneImage, stone.x, stone.y, stone.width, stone.height);
+if (bird.active) {
+ctx.drawImage(birdImage, bird.x, bird.y, bird.width, bird.height);
+}
+}
+function loop() {
+update();
+draw();
+requestAnimationFrame(loop);
+}
+function startGame() {
+if (gameStarted) return;
+gameStarted = true;
+isRunning = true; 
+gameTitleElement.classList.add('hidden');
+}	
+function restartGame() {
+dogX = 110;
+dogY = groundY;
+dogVY = 0;
+isJumping = false;
+isRunning = false;
+gameOver = false;
+gameStarted = false;
+bird.active = false;
+resetBird();
+startTime = null;
+elapsedTime = 0;
+timerElement.textContent = 'Time: 0';
+resetStone();
+gameTitleElement.classList.remove('hidden');
+gameOverScreen.classList.add('hidden');
+}
+gameTitleElement.addEventListener('click', startGame);	
+window.addEventListener('keydown', e => {
+if ((e.code === "Space" || e.code === "ArrowUp") && !isJumping) {
+if (!gameStarted) {
+startGame(); 
+}
+dogVY = jumpPower;
+isJumping = true;
+isRunning = true;
+}
+});
+canvas.addEventListener('click', () => {
+if (!isJumping) {
+dogVY = jumpPower;
+isJumping = true;
+isRunning = true;
+}
+});
+restartButton.addEventListener('click', restartGame);
+gameTitleElement.addEventListener('click', startGame);
+ canvas.addEventListener('click', () => {
+if (!gameStarted)  startGame();   
+if (gameStarted && !isJumping) {
+dogVY = jumpPower;
+isJumping = true;
+isRunning = true;
+}
+});
+let imagesLoaded = 0;
+function checkStart() {
+imagesLoaded++;
+birdImage.onload = checkStart;
+dogWidth = dogImage.width / 7;
+dogHeight = dogImage.height / 7;
+resetStone();
+loop();
+}	
+dogImage.onload = checkStart;
+bgImage.onload = checkStart;
+stoneImage.onload = checkStart;
+</script>
+</body>
+</html>
+
+
